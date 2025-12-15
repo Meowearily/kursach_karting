@@ -1,0 +1,26 @@
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Pytest cache
+.pytest_cache/
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# SQLite DB file for local dev
+music_db_sqlite
+music_db_sqlite.db
+
+# IDE/editor folders
+.vscode/
+.idea/

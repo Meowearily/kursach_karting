@@ -1,0 +1,294 @@
+import uvicorn
+
+from fastapi import FastAPI
+
+#что осталось
+# написать функцию заполнения БД - используй мой initDb|Seed DB
+# запуск engine/пуллера соединений в БД  - должно быть тоже я скинул - 40 строка у насти
+# метод по доставанию сессии, в рамках которой работаем
+
+def get_session():
+    """Получить сессию базы данных"""
+    with Session(engine) as session:
+        yield session
+
+
+
+
+
+async def lifespan(app: FastAPI):
+    print("Запуск приложения...")
+    # Создаём схему и таблицы при старте
+    with engine.begin() as conn:
+        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA};"))
+        SQLModel.metadata.create_all(engine)
+
+    # Инициализируем данные (если пусто)
+    print("Попытка инициализации данных...")
+    db = DatabaseRequests()
+    with Session(engine) as session:
+        if not session.exec(select(Genre)).first():
+            db._init_data(session)
+
+    # Запускаем тесты в фоне (раньше был @app.on_event("startup"))
+    print("Запуск тестов в фоне...")
+    _run_tests_background()
+
+    yield
+
+
+app = FastAPI(title="Kart Club API",
+              lifespan=lifespan)
+
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+from __future__ import annotations
+
+from typing import Annotated, Any
+
+from fastapi import Depends, FastAPI, HTTPException
+from sqlmodel import Session, select
+
+from db import get_session, init_db, seed_demo_data
+from model import Kart, Race, RaceRacerKart, Racer, Track
+from request import get_available_karts, get_races_with_participants
+
+app = FastAPI(title="Kart Club API")
+
+
+@app.on_event("startup")
+def startup() -> None:
+    """Ensure tables exist and seed demo rows for quick testing."""
+    init_db()
+    
+    ()
+
+
+@app.get("/tracks", response_model=list[Track])
+def list_tracks(session: Annotated[Session, Depends(get_session)]) -> list[Track]:
+    return session.exec(select(Track)).all()
+
+
+@app.post("/tracks", response_model=Track, status_code=201)
+def create_track(
+    track: Track, session: Annotated[Session, Depends(get_session)]
+) -> Track:
+    """Create a new track (POST - creates new resource)."""
+    session.add(track)
+    session.commit()
+    session.refresh(track)
+    return track
+
+
+@app.get("/tracks/{track_id}", response_model=Track)
+def get_track(
+    track_id: int, session: Annotated[Session, Depends(get_session)]
+) -> Track:
+    """Get a specific track by ID (GET - retrieve resource)."""
+    track = session.get(Track, track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return track
+
+
+@app.put("/tracks/{track_id}", response_model=Track)
+def update_track(
+    track_id: int,
+    track: Track,
+    session: Annotated[Session, Depends(get_session)],
+) -> Track:
+    """Update entire track (PUT - replace resource completely)."""
+    existing = session.get(Track, track_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Replace all fields
+    existing.name = track.name
+    existing.state = track.state
+    existing.open = track.open
+    existing.length = track.length
+
+    session.add(existing)
+    session.commit()
+    session.refresh(existing)
+    return existing
+
+
+@app.patch("/tracks/{track_id}", response_model=Track)
+def partial_update_track(
+    track_id: int,
+    track_updates: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+) -> Track:
+    """Partially update track (PATCH - update only specified fields)."""
+    track = session.get(Track, track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Update only provided fields
+    if "name" in track_updates:
+        track.name = track_updates["name"]
+    if "state" in track_updates:
+        track.state = track_updates["state"]
+    if "open" in track_updates:
+        track.open = track_updates["open"]
+    if "length" in track_updates:
+        track.length = track_updates["length"]
+
+    session.add(track)
+    session.commit()
+    session.refresh(track)
+    return track
+
+
+@app.delete("/tracks/{track_id}", status_code=204)
+def delete_track(
+    track_id: int, session: Annotated[Session, Depends(get_session)]
+) -> None:
+    """Delete a track (DELETE - remove resource)."""
+    track = session.get(Track, track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    session.delete(track)
+    session.commit()
+    return None  # 204 No Content - no response body
+
+
+@app.get("/racers", response_model=list[Racer])
+def list_racers(session: Annotated[Session, Depends(get_session)]) -> list[Racer]:
+    return session.exec(select(Racer)).all()
+
+
+@app.post("/racers", response_model=Racer, status_code=201)
+def create_racer(
+    racer: Racer, session: Annotated[Session, Depends(get_session)]
+) -> Racer:
+    session.add(racer)
+    session.commit()
+    session.refresh(racer)
+    return racer
+
+
+@app.get("/karts", response_model=list[Kart])
+def list_karts(session: Annotated[Session, Depends(get_session)]) -> list[Kart]:
+    return session.exec(select(Kart)).all()
+
+
+@app.post("/karts", response_model=Kart, status_code=201)
+def create_kart(
+    kart: Kart, session: Annotated[Session, Depends(get_session)]
+) -> Kart:
+    session.add(kart)
+    session.commit()
+    session.refresh(kart)
+    return kart
+
+
+@app.get("/karts/available", response_model=list[Kart])
+def available_karts(session: Annotated[Session, Depends(get_session)]) -> list[Kart]:
+    return list(get_available_karts(session))
+
+
+@app.post("/entries", response_model=RaceRacerKart, status_code=201)
+def add_entry(
+    entry: RaceRacerKart, session: Annotated[Session, Depends(get_session)]
+) -> RaceRacerKart:
+    # Basic FK existence checks
+    for model, key in [
+        (Race, entry.race_id),
+        (Racer, entry.racer_id),
+        (Kart, entry.kart_id),
+    ]:
+        if not session.get(model, key):
+            raise HTTPException(status_code=404, detail=f"{model.__name__} not found")
+
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return entry
+
+
+@app.get("/races/{race_id}")
+def race_details(
+    race_id: int, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
+    race = session.get(Race, race_id)
+    if not race:
+        raise HTTPException(status_code=404, detail="Race not found")
+
+    session.refresh(race, attribute_names=["track", "participants", "staff"])
+    participants = []
+    for entry in race.participants:
+        session.refresh(entry, attribute_names=["racer", "kart"])
+        participants.append(
+            {
+                "racer": entry.racer.name,
+                "kart": entry.kart.model,
+                "duration": entry.duration,
+            }
+        )
+    staff = []
+    for link in race.staff:
+        session.refresh(link, attribute_names=["worker"])
+        staff.append(link.worker.name)
+
+    return {
+        "race_id": race.id,
+        "track": race.track.name,
+        "participants": participants,
+        "staff": staff,
+    }
+
+
+@app.get("/races", response_model=list[dict])
+def races_summary(
+    session: Annotated[Session, Depends(get_session)]
+) -> list[dict[str, Any]]:
+    """Return a summary of all races with participants/staff."""
+    return list(get_races_with_participants(session))
+
+
+# Run API:
+#   uvicorn api:app --reload
+#
+# Sample HTTP calls demonstrating REST methods:
+#
+# GET - Retrieve resources:
+#   curl http://localhost:8000/tracks
+#   curl http://localhost:8000/tracks/1
+#   curl http://localhost:8000/racers
+#   curl http://localhost:8000/karts
+#   curl http://localhost:8000/races
+#   curl http://localhost:8000/races/1
+#
+# POST - Create new resources:
+#   curl -X POST http://localhost:8000/tracks ^
+#        -H "Content-Type: application/json" ^
+#        -d "{\"name\":\"Night Run\",\"state\":true,\"open\":true,\"length\":1.1}"
+#   curl -X POST http://localhost:8000/racers ^
+#        -H "Content-Type: application/json" ^
+#        -d "{\"name\":\"Casey Hill\",\"club_card\":true,\"date_of_birth\":\"1993-02-10\",\"date_of_registration\":\"2024-04-01\"}"
+#   curl -X POST http://localhost:8000/karts ^
+#        -H "Content-Type: application/json" ^
+#        -d "{\"state\":true,\"model\":\"Sodi GT5\",\"tires\":\"Slicks\",\"rain\":false}"
+#   curl -X POST http://localhost:8000/entries ^
+#        -H "Content-Type: application/json" ^
+#        -d "{\"race_id\":1,\"racer_id\":1,\"kart_id\":1,\"duration\":\"00:02:10\"}"
+#
+# PUT - Replace entire resource:
+#   curl -X PUT http://localhost:8000/tracks/1 ^
+#        -H "Content-Type: application/json" ^
+#        -d "{\"name\":\"Updated Track\",\"state\":false,\"open\":false,\"length\":2.0}"
+#
+# PATCH - Partially update resource:
+#   curl -X PATCH http://localhost:8000/tracks/1 ^
+#        -H "Content-Type: application/json" ^
+#        -d "{\"open\":false}"
+#
+# DELETE - Remove resource:
+#   curl -X DELETE http://localhost:8000/tracks/1

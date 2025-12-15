@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+import datetime as dt
+import os
+
+from sqlmodel import Session, create_engine, select
+
+from model import (
+    Karts,
+    Races,
+    Race_Racer_Kart,
+    Racers,
+    Tracks,
+    Workers,
+    Workers_Race,
+)
+
+from api import create_db_and_tables
+# Database connection configuration
+# 
+# For PostgreSQL, set environment variable:
+#   Windows PowerShell: $env:DATABASE_URL="postgresql://user:password@localhost:5432/kartclub"
+#   Linux/Mac: export DATABASE_URL="postgresql://user:password@localhost:5432/kartclub"
+# 
+# PostgreSQL connection string format:
+#   postgresql://username:password@host:port/database_name
+#
+# The engine manages a connection pool and is thread-safe for concurrent requests.
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@host:port/database_name")
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_size=5,       
+    max_overflow=10,  
+)
+
+
+def get_session() -> Session:
+    """Yield a session; intended for dependency injection."""
+    with Session(engine) as session:
+        yield session
+
+
+def init_db() -> None:
+    """Create all tables defined in models.py."""
+    create_db_and_tables(engine)
+
+
+def seed_demo_data() -> None:
+    """Populate the database with a small demo dataset."""
+    with Session(engine) as session:
+        if session.exec(select(Tracks)).first():
+            return
+
+        tracks = [
+            Tracks(name="Downtown Sprint", state=True, open=True, length=0.85),
+            Tracks(name="Coastal Run", state=True, open=False, length=1.30),
+        ]
+        session.add_all(tracks)
+        session.commit() 
+        for track in tracks:
+            session.refresh(track)
+
+        races = [
+            Races(track_id=tracks[0].id),
+            Races(track_id=tracks[1].id),
+        ]
+        session.add_all(races)
+        session.commit()
+        for race in races:  # Refresh to read back auto IDs.
+            session.refresh(race)
+
+        racers = [
+            Racers(
+                name="Alex Rivers",
+                club_card=True,
+                date_of_birth=dt.date(1992, 3, 14),
+                date_of_registration=dt.date(2024, 1, 10),
+                best_time=dt.time(0, 1, 2),
+            ),
+            Racers(
+                name="Jamie Lake",
+                club_card=False,
+                date_of_birth=dt.date(1995, 7, 2),
+                date_of_registration=dt.date(2024, 2, 18),
+                best_time=dt.time(0, 1, 4),
+            ),
+        ]
+        session.add_all(racers)
+
+        karts = [
+            Karts(
+                state=True,
+                model="Sodi GT4R",
+                tires="Slicks",
+                tires_change_date=dt.date(2024, 5, 5),
+                rain=False,
+            ),
+            Karts(
+                state=True,
+                model="Birel N35",
+                tires="Rain",
+                tires_change_date=dt.date(2024, 6, 12),
+                rain=True,
+            ),
+        ]
+        session.add_all(karts)
+
+        workers = [
+            Workers(
+                name="Morgan Lee",
+                date_of_birth=dt.date(1988, 11, 30),
+                status="Marshal",
+                salary=4200.0,
+            ),
+            Workers(
+                name="Riley Chen",
+                date_of_birth=dt.date(1990, 9, 15),
+                status="Mechanic",
+                salary=4800.0,
+            ),
+        ]
+        session.add_all(workers)
+        session.commit()  # IDs needed for join tables below.
+        for racer in racers:
+            session.refresh(racer)
+        for kart in karts:
+            session.refresh(kart)
+        for worker in workers:
+            session.refresh(worker)
+
+        race_racer_kart = [
+            Race_Racer_Kart(
+                race_id=races[0].id,
+                racer_id=racers[0].id,
+                kart_id=karts[0].id,
+                duration=dt.time(0, 2, 1),
+            ),
+            Race_Racer_Kart(
+                race_id=races[0].id,
+                racer_id=racers[1].id,
+                kart_id=karts[1].id,
+                duration=dt.time(0, 2, 5),
+            ),
+            Race_Racer_Kart(
+                race_id=races[1].id,
+                racer_id=racers[1].id,
+                kart_id=karts[0].id,
+                duration=dt.time(0, 2, 3),
+            ),
+        ]
+        session.add_all(race_racer_kart)
+
+        workers_race = [
+            Workers_Race(worker_id=workers[0].id, race_id=races[0].id),
+            Workers_Race(worker_id=workers[1].id, race_id=races[0].id),
+            Workers_Race(worker_id=workers[0].id, race_id=races[1].id),
+        ]
+        session.add_all(workers_race)
+        session.commit()
