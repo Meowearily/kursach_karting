@@ -2,11 +2,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from datetime import date, time
 
-
-# ========== БАЗОВЫЕ КЛАССЫ (для API) ==========
-
 class RacerBase(SQLModel):
-    """Базовый класс для гонщика (используется в API)"""
     name: str
     club_card: bool
     date_of_birth: date
@@ -15,7 +11,6 @@ class RacerBase(SQLModel):
 
 
 class KartBase(SQLModel):
-    """Базовый класс для карта (используется в API)"""
     model: str
     state: bool
     tires: str
@@ -24,7 +19,6 @@ class KartBase(SQLModel):
 
 
 class TrackBase(SQLModel):
-    """Базовый класс для трассы (используется в API)"""
     name: str
     state: bool
     open: bool
@@ -32,7 +26,6 @@ class TrackBase(SQLModel):
 
 
 class WorkerBase(SQLModel):
-    """Базовый класс для работника (используется в API)"""
     name: str
     date_of_birth: date
     status: str
@@ -40,23 +33,17 @@ class WorkerBase(SQLModel):
 
 
 class RaceBase(SQLModel):
-    """Базовый класс для гонки (используется в API)"""
     track_id: int
     race_date: date | None = None
 
 
 class RaceResultBase(SQLModel):
-    """Базовый класс для результата гонки (используется в API)"""
     race_id: int
     racer_id: int
     kart_id: int
     duration: time
 
-
-# ========== ТАБЛИЦЫ БД (наследуют базовые классы) ==========
-
 class Racers(RacerBase, table=True):
-    """Таблица гонщиков"""
     id: int | None = Field(default=None, primary_key=True)
     
     # Relationships
@@ -64,7 +51,6 @@ class Racers(RacerBase, table=True):
 
 
 class Karts(KartBase, table=True):
-    """Таблица картов"""
     id: int | None = Field(default=None, primary_key=True)
     
     # Relationships
@@ -72,7 +58,6 @@ class Karts(KartBase, table=True):
 
 
 class Tracks(TrackBase, table=True):
-    """Таблица трасс"""
     id: int | None = Field(default=None, primary_key=True)
 
     # Relationships
@@ -80,7 +65,6 @@ class Tracks(TrackBase, table=True):
 
 
 class Workers(WorkerBase, table=True):
-    """Таблица работников"""
     id: int | None = Field(default=None, primary_key=True)
     
     # Relationships
@@ -88,7 +72,6 @@ class Workers(WorkerBase, table=True):
 
 
 class Races(RaceBase, table=True):
-    """Таблица гонок"""
     id: int | None = Field(default=None, primary_key=True)
     track_id: int = Field(foreign_key="tracks.id")
 
@@ -99,7 +82,6 @@ class Races(RaceBase, table=True):
 
 
 class Workers_Race(SQLModel, table=True):
-    """Связующая таблица: работники ↔ гонки"""
     id: int | None = Field(default=None, primary_key=True)
     worker_id: int = Field(foreign_key="workers.id")
     race_id: int = Field(foreign_key="races.id")
@@ -110,7 +92,6 @@ class Workers_Race(SQLModel, table=True):
 
 
 class Race_Racer_Kart(RaceResultBase, table=True):
-    """Связующая таблица: гонки ↔ гонщики ↔ карты"""
     id: int | None = Field(default=None, primary_key=True)
     race_id: int = Field(foreign_key="races.id")
     racer_id: int = Field(foreign_key="racers.id")
