@@ -105,7 +105,7 @@ def seed_database():
         session.refresh(racer1)
         session.refresh(racer2)
         
-        # Создаем гонку (демонстрация foreign key)
+        # Создаем гонку
         race1 = Races(
             track_id=track1.id,
             race_date=date(2025, 12, 15)
@@ -114,7 +114,7 @@ def seed_database():
         session.commit()
         session.refresh(race1)
         
-        # Создаем результаты гонки (демонстрация множественных foreign keys)
+        # Создаем результаты гонки
         result1 = Race_Racer_Kart(
             race_id=race1.id,
             racer_id=racer1.id,
@@ -260,7 +260,7 @@ def get_all_races(session: Session = Depends(get_session)):
 
 @app.get("/races/{race_id}", response_model=Races, tags=["Races"])
 def get_race(race_id: int, session: Session = Depends(get_session)):
-    """Получить гонку по ID (с информацией о трассе через foreign key)"""
+    """Получить гонку по ID"""
     race = req.read_race_by_id(session, race_id)
     if not race:
         raise HTTPException(status_code=404, detail="Гонка не найдена")
@@ -271,7 +271,6 @@ def get_race(race_id: int, session: Session = Depends(get_session)):
 def create_new_race(race_data: RaceBase, session: Session = Depends(get_session)):
     """
     Создать новую гонку
-    ПРИМЕР РАБОТЫ С FOREIGN KEY: track_id должен существовать в таблице tracks
     """
     # Проверяем существование трассы
     track = req.read_track_by_id(session, race_data.track_id)
@@ -290,7 +289,6 @@ def create_new_race(race_data: RaceBase, session: Session = Depends(get_session)
 def get_races_by_track_id(track_id: int, session: Session = Depends(get_session)):
     """
     Получить все гонки на определенной трассе
-    ПРИМЕР РАБОТЫ С FOREIGN KEY: фильтрация по track_id
     """
     return req.get_races_by_track(session, track_id)
 
@@ -317,10 +315,6 @@ def create_race_result(
 ):
     """
     Записать результат гонки
-    ПРИМЕР РАБОТЫ С МНОЖЕСТВЕННЫМИ FOREIGN KEYS:
-    - race_id должен существовать в races
-    - racer_id должен существовать в racers
-    - kart_id должен существовать в karts
     """
     # Проверяем существование всех связанных объектов
     race = req.read_race_by_id(session, result_data.race_id)
@@ -336,7 +330,6 @@ def create_race_result(
 def get_race_results(race_id: int, session: Session = Depends(get_session)):
     """
     Получить все результаты конкретной гонки
-    ПРИМЕР РАБОТЫ С RELATIONSHIPS: автоматически загружаются связанные racer и kart
     """
     return req.get_race_results(session, race_id)
 
@@ -345,7 +338,6 @@ def get_race_results(race_id: int, session: Session = Depends(get_session)):
 def get_racer_history(racer_id: int, session: Session = Depends(get_session)):
     """
     Получить историю всех гонок гонщика
-    ПРИМЕР РАБОТЫ С RELATIONSHIPS: автоматически загружаются связанные race и kart
     """
     return req.get_racer_history(session, racer_id)
 

@@ -96,7 +96,7 @@ def read_race_by_id(session: Session, race_id: int) -> Races | None:
 
 
 def create_race(race: Races, session: Session) -> Races:
-    """Создать новую гонку (пример работы с foreign key)"""
+    """Создать новую гонку"""
     session.add(race)
     session.commit()
     session.refresh(race)
@@ -104,7 +104,7 @@ def create_race(race: Races, session: Session) -> Races:
 
 
 def get_races_by_track(session: Session, track_id: int) -> Sequence[Races]:
-    """Получить все гонки на определенной трассе (пример работы с foreign key)"""
+    """Получить все гонки на определенной трассе"""
     statement = select(Races).where(Races.track_id == track_id)
     return session.exec(statement).all()
 
@@ -128,8 +128,7 @@ def create_racer(racer: Racers, session: Session) -> Racers:
 
 def create_race_racer_kart(race_racer_kart: Race_Racer_Kart, session: Session) -> Race_Racer_Kart:
     """
-    Создать связь между гонкой, гонщиком и картом
-    Пример работы с множественными foreign keys
+    Создание связи между гонкой, гонщиком и картом
     """
     session.add(race_racer_kart)
     session.commit()
@@ -139,8 +138,7 @@ def create_race_racer_kart(race_racer_kart: Race_Racer_Kart, session: Session) -
 
 def get_race_results(session: Session, race_id: int) -> Sequence[Race_Racer_Kart]:
     """
-    Получить все результаты гонки с информацией о гонщиках и картах
-    Демонстрация работы с relationships через foreign keys
+    Получение всех результатов гонки с информацией о гонщиках и картах
     """
     statement = select(Race_Racer_Kart).where(Race_Racer_Kart.race_id == race_id)
     return session.exec(statement).all()
@@ -148,8 +146,7 @@ def get_race_results(session: Session, race_id: int) -> Sequence[Race_Racer_Kart
 
 def get_racer_history(session: Session, racer_id: int) -> Sequence[Race_Racer_Kart]:
     """
-    Получить историю гонок гонщика
-    Демонстрация работы с relationships через foreign keys
+    Получение истории гонок гонщика
     """
     statement = select(Race_Racer_Kart).where(Race_Racer_Kart.racer_id == racer_id)
     return session.exec(statement).all()
@@ -158,12 +155,12 @@ def get_racer_history(session: Session, racer_id: int) -> Sequence[Race_Racer_Ka
 # ========== WORKERS ==========
 
 def read_all_workers(session: Session) -> Sequence[Workers]:
-    """Получить всех работников"""
+    """Получение всех работников"""
     return session.exec(select(Workers)).all()
 
 
 def create_worker(worker: Workers, session: Session) -> Workers:
-    """Создать нового работника"""
+    """Создание нового работника"""
     session.add(worker)
     session.commit()
     session.refresh(worker)
